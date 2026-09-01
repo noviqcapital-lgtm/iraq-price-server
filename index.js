@@ -69,7 +69,45 @@ async function getStocks() {
   return out;
 }
 
+// 🔔 يرسل إشعاراً لكل المستخدمين (المشتركين بمجموعة "all")
+async function sendToAll(title, body) {
+  await admin.messaging().send({ topic: 'all', notification: { title, body } });
+  console.log('SENT FCM:', title, '/', body);
+}
+
+// يتعامل مع الإشعارات: بث يدوي من لوحة المدير + تنبيهات تلقائية على تغيّر السعر
+async function handleNotifications(oldData, newData) {
+  // 1) بث يدوي: لوحة المدير تكتب config/broadcast = {id, title, body}
+  try {
+    const bref = db.collection('config').doc('broadcast');
+    const b = (await bref.get()).data();
+    if (b && b.id && b.id !== b.sentId && (b.title || b.body)) {
+      await sendToAll(b.title || 'إشعار', b.body || '');
+      await bref.set({ sentId: b.id }, { merge: true });
+    }
+  } catch (e) { console.warn('broadcast err', e.message); }
+
+  // 2) تنبيهات تلقائية عند حركة سعر كبيرة بين تشغيلين
+  try {
+    if (oldData) {
+      const og = oldData.goldOunceUSD, ng = newData.goldOunceUSD;
+      if (og && ng && Math.abs(ng - og) / og >= 0.01) {
+        await sendToAll(`الذهب ${ng > og ? 'ارتفع 📈' : 'نزل 📉'}`, `سعر أونصة الذهب الآن $${ng.toFixed(2)}`);
+      }
+      const os = oldData.dollar ? parseInt(String(oldData.dollar.sell).replace(/,/g, '')) : 0;
+      const ns = newData.dollar ? parseInt(String(newData.dollar.sell).replace(/,/g, '')) : 0;
+      if (os && ns && Math.abs(ns - os) >= 1000) {
+        await sendToAll(`الدولار ${ns > os ? 'ارتفع 📈' : 'نزل 📉'}`, `سعر بيع الدولار الآن ${ns.toLocaleString('en-US')} لكل 100$`);
+      }
+    }
+  } catch (e) { console.warn('auto-alert err', e.message); }
+}
+
 async function main() {
+  // اقرأ الأسعار القديمة للمقارنة (للتنبيهات التلقائية)
+  let oldData = null;
+  try { const s = await db.collection('prices').doc('latest').get(); if (s.exists) oldData = s.data(); } catch (_) {}
+
   const data = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
   const r = await Promise.allSettled([getDollar(), getMetal('XAU'), getMetal('XAG'), getOil(), getCrypto(), getStocks()]);
   const [dollar, gold, silver, oil, crypto, stocks] = r;
@@ -85,6 +123,7 @@ async function main() {
   r.forEach((x, i) => { if (x.status === 'rejected') console.warn('FAILED source', i, x.reason?.message || x.reason); });
 
   await db.collection('prices').doc('latest').set(data, { merge: true });
+  await handleNotifications(oldData, data);
   console.log('OK wrote prices/latest:', JSON.stringify({
     dollar: data.dollar, gold: data.goldOunceUSD, silver: data.silverOunceUSD,
     oil: data.oil, cryptoCount: data.crypto ? Object.keys(data.crypto).length : 0,
