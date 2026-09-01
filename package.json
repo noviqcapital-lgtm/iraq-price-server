@@ -1,0 +1,14 @@
+{
+  "name": "dollar-gold-iraq-price-server",
+  "version": "1.0.0",
+  "description": "Fetches Iraqi market prices and writes them to Firestore",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^9.0.1",
+    "firebase-admin": "^12.7.0"
+  }
+}

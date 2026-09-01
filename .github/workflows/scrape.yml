@@ -1,0 +1,20 @@
+name: Fetch prices
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # كل 15 دقيقة
+  workflow_dispatch:          # زر تشغيل يدوي
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - name: Run scraper
+        run: node index.js
+        env:
+          FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
