@@ -103,6 +103,35 @@ async function handleNotifications(oldData, newData) {
   } catch (e) { console.warn('auto-alert err', e.message); }
 }
 
+// ⏰ إشعارات مجدولة بأوقات ثابتة (توقيت بغداد UTC+3) — تُقرأ من config/schedule
+// config/schedule = { items: [{time:"14:00", title:"...", body:"..."}], sent:{} }
+async function handleScheduled() {
+  try {
+    const ref = db.collection('config').doc('schedule');
+    const snap = await ref.get();
+    if (!snap.exists) return;
+    const d = snap.data();
+    const items = Array.isArray(d.items) ? d.items : [];
+    const sent = d.sent || {};
+    const bag = new Date(Date.now() + 3 * 3600 * 1000); // بغداد
+    const today = bag.toISOString().slice(0, 10);
+    const curMin = bag.getUTCHours() * 60 + bag.getUTCMinutes();
+    let changed = false;
+    for (const it of items) {
+      if (!it || !it.time) continue;
+      const [th, tm] = String(it.time).split(':').map(Number);
+      const schedMin = th * 60 + tm;
+      // يُرسل مرة واحدة يومياً عند أول تشغيل بعد الوقت المحدد (بنافذة ساعتين)
+      if (curMin >= schedMin && curMin < schedMin + 120 && sent[it.time] !== today) {
+        await sendToAll(it.title || 'إشعار', it.body || '');
+        sent[it.time] = today;
+        changed = true;
+      }
+    }
+    if (changed) await ref.set({ sent }, { merge: true });
+  } catch (e) { console.warn('scheduled err', e.message); }
+}
+
 async function main() {
   // اقرأ الأسعار القديمة للمقارنة (للتنبيهات التلقائية)
   let oldData = null;
@@ -124,6 +153,7 @@ async function main() {
 
   await db.collection('prices').doc('latest').set(data, { merge: true });
   await handleNotifications(oldData, data);
+  await handleScheduled();
   console.log('OK wrote prices/latest:', JSON.stringify({
     dollar: data.dollar, gold: data.goldOunceUSD, silver: data.silverOunceUSD,
     oil: data.oil, cryptoCount: data.crypto ? Object.keys(data.crypto).length : 0,
