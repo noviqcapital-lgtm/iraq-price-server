@@ -2,7 +2,7 @@ name: Fetch prices
 
 on:
   schedule:
-    - cron: '*/15 * * * *'   # كل 15 دقيقة
+    - cron: '*/10 * * * *'   # كل 10 دقائق
   workflow_dispatch:          # زر تشغيل يدوي
 
 jobs:
