@@ -1,6 +1,11 @@
 // سيرفر جلب الأسعار — يجمع أسعار السوق العراقي ويكتبها في Firestore (prices/latest)
 // يشتغل عبر GitHub Actions كل ~15 دقيقة (أو محلياً للاختبار)
 const admin = require('firebase-admin');
+const fs = require('fs');
+
+// رقم أحدث إصدار منشور من التطبيق (build number) — يُستخدم لتنبيه "يوجد تحديث"
+// عند إطلاق نسخة جديدة: ارفع هذا الرقم ليطابق build الجديد
+const LATEST_BUILD = 6;
 
 // مفتاح الخدمة: محلياً من الملف، وعلى GitHub من متغيّر البيئة FIREBASE_KEY
 const serviceAccount = process.env.FIREBASE_KEY
@@ -152,6 +157,39 @@ async function main() {
   r.forEach((x, i) => { if (x.status === 'rejected') console.warn('FAILED source', i, x.reason?.message || x.reason); });
 
   await db.collection('prices').doc('latest').set(data, { merge: true });
+
+  // 🌐 اكتب ملف CDN عام (يُخدم عبر jsDelivr) — قراءات لا محدودة تتحمّل مئات آلاف المستخدمين مجاناً
+  // التطبيق يقرأ من هذا الملف بدل Firestore مباشرة، فلا يضغط على الحد المجاني
+  try {
+    // اقرأ الوثيقة المدموجة كاملة (تشمل آخر قيم معروفة حتى لو فشل مصدر هذه الدورة)
+    let full = data;
+    try { const s = await db.collection('prices').doc('latest').get(); if (s.exists) full = s.data(); } catch (_) {}
+    // اقرأ إعدادات المدير العامة لتضمينها بنفس الملف (إعلان، تواصل، صيرفات، صياغات، مصادر، قيم يدوية)
+    let cfg = {};
+    try { const cs = await db.collection('config').doc('app').get(); if (cs.exists) cfg = cs.data() || {}; } catch (_) {}
+    const cdn = {
+      updatedAt: Date.now(),
+      dollar: full.dollar || null,
+      goldOunceUSD: full.goldOunceUSD || null,
+      silverOunceUSD: full.silverOunceUSD || null,
+      oil: full.oil || null,
+      crypto: full.crypto || null,
+      stocks: full.stocks || null,
+      config: {
+        announcement: cfg.announcement || '',
+        announcementOn: cfg.announcementOn === true,
+        contact: cfg.contact || '',
+        exchanges: Array.isArray(cfg.exchanges) ? cfg.exchanges : [],
+        jewelry: Array.isArray(cfg.jewelry) ? cfg.jewelry : [],
+        priceSource: cfg.priceSource || {},
+        manual: cfg.manual || {},
+        latestBuild: LATEST_BUILD,
+      },
+    };
+    fs.writeFileSync('prices.json', JSON.stringify(cdn));
+    console.log('OK wrote prices.json (CDN)');
+  } catch (e) { console.warn('cdn write err', e.message); }
+
   await handleNotifications(oldData, data);
   await handleScheduled();
   console.log('OK wrote prices/latest:', JSON.stringify({

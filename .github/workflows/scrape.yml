@@ -10,6 +10,9 @@ concurrency:
   group: price-scraper
   cancel-in-progress: false
 
+permissions:
+  contents: write             # للسماح برفع ملف prices.json إلى المستودع (لخدمة الـ CDN)
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
@@ -24,9 +27,21 @@ jobs:
         env:
           FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
         run: |
+          git config user.name "price-bot"
+          git config user.email "price-bot@users.noreply.github.com"
           for i in $(seq 1 34); do
             echo "=== تشغيل رقم $i / 34 ==="
             node index.js || echo "فشل هذا التشغيل — نكمل الحلقة"
+            # ارفع ملف الأسعار للمستودع ونظّف كاش jsDelivr ليصل للمستخدمين فوراً
+            if [ -f prices.json ] && ! git diff --quiet prices.json; then
+              git add prices.json
+              git commit -m "prices update [skip ci]" || true
+              git pull --rebase --autostash origin main || true
+              git push origin main || echo "push فشل — نكمل"
+              curl -s "https://purge.jsdelivr.net/gh/noviqcapital-lgtm/iraq-price-server@main/prices.json" > /dev/null || true
+            else
+              echo "لا تغيير بالأسعار — لا رفع"
+            fi
             if [ "$i" -lt 34 ]; then
               echo "انتظار 10 دقائق..."
               sleep 600
