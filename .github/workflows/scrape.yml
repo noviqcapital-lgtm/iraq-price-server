@@ -33,14 +33,16 @@ jobs:
             echo "=== تشغيل رقم $i / 34 ==="
             node index.js || echo "فشل هذا التشغيل — نكمل الحلقة"
             # ارفع ملف الأسعار للمستودع ونظّف كاش jsDelivr ليصل للمستخدمين فوراً
-            if [ -f prices.json ] && ! git diff --quiet prices.json; then
+            if [ -f prices.json ]; then
               git add prices.json
-              git commit -m "prices update [skip ci]" || true
-              git pull --rebase --autostash origin main || true
-              git push origin main || echo "push فشل — نكمل"
-              curl -s "https://purge.jsdelivr.net/gh/noviqcapital-lgtm/iraq-price-server@main/prices.json" > /dev/null || true
-            else
-              echo "لا تغيير بالأسعار — لا رفع"
+              if ! git diff --cached --quiet; then
+                git commit -m "prices update [skip ci]" || true
+                git pull --rebase --autostash origin main || true
+                git push origin main || echo "push فشل — نكمل"
+                curl -s "https://purge.jsdelivr.net/gh/noviqcapital-lgtm/iraq-price-server@main/prices.json" > /dev/null || true
+              else
+                echo "لا تغيير بالأسعار — لا رفع"
+              fi
             fi
             if [ "$i" -lt 34 ]; then
               echo "انتظار 10 دقائق..."
