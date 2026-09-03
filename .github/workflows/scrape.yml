@@ -2,19 +2,34 @@ name: Fetch prices
 
 on:
   schedule:
-    - cron: '*/10 * * * *'   # كل 10 دقائق
+    - cron: '*/15 * * * *'   # شبكة أمان: يعيد تشغيل الحلقة إذا توقفت
   workflow_dispatch:          # زر تشغيل يدوي
+
+# يمنع تشغيل حلقتين بنفس الوقت، ويسلّم التشغيل بسلاسة عند انتهاء الحلقة
+concurrency:
+  group: price-scraper
+  cancel-in-progress: false
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 350       # يشتغل ~6 ساعات ثم يعيد نفسه عبر شبكة الأمان
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - run: npm install
-      - name: Run scraper
-        run: node index.js
+      - name: Run scraper in a 10-min loop for ~6 hours
         env:
           FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
+        run: |
+          for i in $(seq 1 34); do
+            echo "=== تشغيل رقم $i / 34 ==="
+            node index.js || echo "فشل هذا التشغيل — نكمل الحلقة"
+            if [ "$i" -lt 34 ]; then
+              echo "انتظار 10 دقائق..."
+              sleep 600
+            fi
+          done
+          echo "انتهت الحلقة — شبكة الأمان راح تعيد التشغيل"
