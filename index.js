@@ -34,7 +34,8 @@ async function getDollar() {
   const idx = html.lastIndexOf('🇺🇸');
   const seg = idx >= 0 ? html.slice(idx, idx + 400) : html;
   const s = seg.match(/البيع[^\d]{0,40}([\d,]{5,9})/);
-  const b = seg.match(/الشراء[^\d]{0,40}([\d,]{5,9})/);
+  // يقبل صيغ الشراء المختلفة من المصدر: "الشراء" / "لشراء" / "شراء"
+  const b = seg.match(/(?:ال|ل)?شراء[^\d]{0,40}([\d,]{5,9})/);
   return { sell: s ? s[1].replace(/,/g, '') : null, buy: b ? b[1].replace(/,/g, '') : null };
 }
 
@@ -146,7 +147,12 @@ async function main() {
   const r = await Promise.allSettled([getDollar(), getMetal('XAU'), getMetal('XAG'), getOil(), getCrypto(), getStocks()]);
   const [dollar, gold, silver, oil, crypto, stocks] = r;
 
-  if (dollar.status === 'fulfilled' && dollar.value.sell) data.dollar = dollar.value;
+  if (dollar.status === 'fulfilled' && dollar.value.sell) {
+    const dv = dollar.value;
+    // احتفظ بآخر سعر شراء معروف إذا لم يُقرأ هذه المرة (يمنع ظهور "---")
+    if (!dv.buy && oldData && oldData.dollar && oldData.dollar.buy) dv.buy = oldData.dollar.buy;
+    data.dollar = dv;
+  }
   if (gold.status === 'fulfilled' && gold.value) data.goldOunceUSD = gold.value;
   if (silver.status === 'fulfilled' && silver.value) data.silverOunceUSD = silver.value;
   if (oil.status === 'fulfilled' && oil.value) data.oil = String(oil.value);
