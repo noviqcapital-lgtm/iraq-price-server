@@ -5,7 +5,7 @@ const fs = require('fs');
 
 // رقم أحدث إصدار منشور من التطبيق (build number) — يُستخدم لتنبيه "يوجد تحديث"
 // عند إطلاق نسخة جديدة: ارفع هذا الرقم ليطابق build الجديد
-const LATEST_BUILD = 6;
+const LATEST_BUILD = 7;
 
 // مفتاح الخدمة: محلياً من الملف، وعلى GitHub من متغيّر البيئة FIREBASE_KEY
 const serviceAccount = process.env.FIREBASE_KEY
