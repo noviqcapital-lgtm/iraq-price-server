@@ -109,15 +109,19 @@ async function handleNotifications(oldData, newData) {
   } catch (e) { console.warn('auto-alert err', e.message); }
 }
 
-// ⏰ إشعارات مجدولة بأوقات ثابتة (توقيت بغداد UTC+3) — تُقرأ من config/schedule
-// config/schedule = { items: [{time:"14:00", title:"...", body:"..."}], sent:{} }
+// ⏰ إشعارات مجدولة بأوقات ثابتة (توقيت بغداد UTC+3) — تُعرّف هنا بالكود
+// لإضافة/تغيير إشعار: عدّل هذه القائمة وارفع (بدون تحديث للتطبيق). تصل للأندرويد والآيفون معاً.
+const SCHEDULED_ITEMS = [
+  { time: '14:00', title: 'أسعار اليوم 💵🥇', body: 'تابع أسعار الدولار والذهب الآن في التطبيق' },
+  { time: '20:00', title: 'أسعار المساء 💵🥇', body: 'تابع آخر أسعار الدولار والذهب مساءً في التطبيق' },
+];
+
 async function handleScheduled() {
   try {
     const ref = db.collection('config').doc('schedule');
     const snap = await ref.get();
-    if (!snap.exists) return;
-    const d = snap.data();
-    const items = Array.isArray(d.items) ? d.items : [];
+    const d = snap.exists ? snap.data() : {};
+    const items = SCHEDULED_ITEMS;
     const sent = d.sent || {};
     const bag = new Date(Date.now() + 3 * 3600 * 1000); // بغداد
     const today = bag.toISOString().slice(0, 10);
