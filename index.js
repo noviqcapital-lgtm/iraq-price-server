@@ -17,13 +17,14 @@ const db = admin.firestore();
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
 
+// حد زمني لكل طلب (25 ثانية) — مصدر معلّق ما يوقف السيرفر كله
 async function fetchText(url, headers = {}) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA, ...headers } });
+  const res = await fetch(url, { headers: { 'User-Agent': UA, ...headers }, signal: AbortSignal.timeout(25000) });
   if (!res.ok) throw new Error(`${url} -> ${res.status}`);
   return res.text();
 }
 async function fetchJson(url, headers = {}) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA, ...headers } });
+  const res = await fetch(url, { headers: { 'User-Agent': UA, ...headers }, signal: AbortSignal.timeout(25000) });
   if (!res.ok) throw new Error(`${url} -> ${res.status}`);
   return res.json();
 }
@@ -177,9 +178,23 @@ async function main() {
     // اقرأ إعدادات المدير العامة لتضمينها بنفس الملف (إعلان، تواصل، صيرفات، صياغات، مصادر، قيم يدوية)
     let cfg = {};
     try { const cs = await db.collection('config').doc('app').get(); if (cs.exists) cfg = cs.data() || {}; } catch (_) {}
+    // 📈 سعر إغلاق دولار البيع ليوم أمس (بتوقيت بغداد) — لسهم التغيّر ▲▼ بالتطبيق (إضافة فقط)
+    let dollarPrevClose = null;
+    try {
+      const curSell = full.dollar ? parseInt(String(full.dollar.sell).replace(/,/g, '')) : 0;
+      const today = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+      const dref = db.collection('prices').doc('daily');
+      const ds = await dref.get();
+      const dd = ds.exists ? ds.data() : {};
+      let prevClose = dd.prevClose || null;
+      if (dd.date && dd.date !== today && dd.lastSell) prevClose = dd.lastSell; // يوم جديد: آخر سعر أمس = الإغلاق
+      if (curSell > 0) await dref.set({ date: today, lastSell: curSell, prevClose }, { merge: true });
+      dollarPrevClose = prevClose;
+    } catch (e) { console.warn('daily err', e.message); }
     const cdn = {
       updatedAt: Date.now(),
       dollar: full.dollar || null,
+      dollarPrevClose,
       goldOunceUSD: full.goldOunceUSD || null,
       silverOunceUSD: full.silverOunceUSD || null,
       oil: full.oil || null,
