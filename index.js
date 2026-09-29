@@ -65,7 +65,9 @@ async function getStocks() {
   await Promise.all(POPULAR.map(async (sym) => {
     try {
       const html = await fetchText(`https://iraqsm.com/c/${sym}`);
-      const m = html.match(/\\?"close\\?":([0-9.]+),\\?"pct\\?":(-?[0-9.]+)/);
+      // الصيغة الحالية للموقع (last / changePct داخل بيانات السهم)، وإن لم توجد نرجع للصيغة القديمة (close / pct)
+      const re = new RegExp(`\\\\?"sym\\\\?":\\\\?"${sym}\\\\?"[\\s\\S]{0,600}?\\\\?"last\\\\?":([0-9.]+)[\\s\\S]{0,200}?\\\\?"changePct\\\\?":(-?[0-9.eE+-]+)`);
+      const m = html.match(re) || html.match(/\\?"close\\?":([0-9.]+),\\?"pct\\?":(-?[0-9.]+)/);
       if (m) {
         const close = parseFloat(m[1]);
         const pct = parseFloat(m[2]);
