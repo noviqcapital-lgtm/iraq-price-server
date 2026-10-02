@@ -283,8 +283,10 @@ function analyze(type, ref, bls, rates, fc, date) {
 function needsRebuild(old, events) {
   if (!old || !old.updatedAt) return true;
   const now = Date.now();
+  if (now - old.updatedAt < 30 * 60000) return false; // حد أدنى 30 دقيقة بين محاولتين (حد BLS المجاني 25 طلب باليوم)
   if (now - old.updatedAt > 6 * 3600000) return true;
-  return events.some((e) => e.at <= now && now - e.at < 3 * 86400000 && !(old.events || []).some((o) => o.id === e.id && o.status === 'released' && o.headline));
+  // خبر صدر خلال آخر 3 أيام وبعده بدون أرقام رسمية → نعيد المحاولة
+  return events.some((e) => e.at <= now && now - e.at < 3 * 86400000 && !(old.events || []).some((o) => o.id === e.id && o.status === 'released' && o.actual));
 }
 
 async function updateMacro(force = false) {

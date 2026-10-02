@@ -39,10 +39,13 @@ jobs:
               # ملفات الرسم البياني: لقطات اليوم + الإغلاق اليومي
               for f in intraday.json history.json macro.json; do if [ -f "$f" ]; then git add "$f"; fi; done
               if ! git diff --cached --quiet; then
+                CHANGED=$(git diff --cached --name-only)
                 git commit -m "prices update [skip ci]" || true
-                timeout 90 git pull --rebase --autostash origin main || git rebase --abort 2>/dev/null || true
+                # -X theirs: إذا نفس الملف انعدل بمكان ثاني (مثل بناء التحليل اليدوي) ناخذ نسختنا الأحدث بدل ما يعلگ الرفع
+                timeout 90 git pull --rebase --autostash -X theirs origin main || git rebase --abort 2>/dev/null || true
                 timeout 90 git push origin main || echo "push فشل — نكمل"
-                for f in prices.json intraday.json history.json macro.json; do
+                # نحدّث كاش jsDelivr للملفات اللي تغيّرت فقط
+                for f in $CHANGED; do
                   curl -s --max-time 20 "https://purge.jsdelivr.net/gh/noviqcapital-lgtm/iraq-price-server@main/$f" > /dev/null || true
                 done
               else
