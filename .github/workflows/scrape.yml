@@ -36,11 +36,15 @@ jobs:
             # ارفع ملف الأسعار للمستودع ونظّف كاش jsDelivr ليصل للمستخدمين فوراً
             if [ -f prices.json ]; then
               git add prices.json
+              # ملفات الرسم البياني: لقطات اليوم + الإغلاق اليومي
+              for f in intraday.json history.json; do if [ -f "$f" ]; then git add "$f"; fi; done
               if ! git diff --cached --quiet; then
                 git commit -m "prices update [skip ci]" || true
                 timeout 90 git pull --rebase --autostash origin main || git rebase --abort 2>/dev/null || true
                 timeout 90 git push origin main || echo "push فشل — نكمل"
-                curl -s --max-time 20 "https://purge.jsdelivr.net/gh/noviqcapital-lgtm/iraq-price-server@main/prices.json" > /dev/null || true
+                for f in prices.json intraday.json history.json; do
+                  curl -s --max-time 20 "https://purge.jsdelivr.net/gh/noviqcapital-lgtm/iraq-price-server@main/$f" > /dev/null || true
+                done
               else
                 echo "لا تغيير بالأسعار — لا رفع"
               fi

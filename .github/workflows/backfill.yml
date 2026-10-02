@@ -1,0 +1,35 @@
+name: Backfill price history
+
+# تشغيل يدوي لمرة وحدة: يبني history.json (الدولار والذهب والفضة من 2020 لحد أمس)
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: history-backfill
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build history.json
+        run: node backfill.js
+      - name: Commit history.json
+        run: |
+          git config user.name "price-bot"
+          git config user.email "price-bot@users.noreply.github.com"
+          git add history.json
+          git commit -m "history backfill [skip ci]" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin main && git push origin main && break
+            sleep 10
+          done
+          curl -s --max-time 20 "https://purge.jsdelivr.net/gh/noviqcapital-lgtm/iraq-price-server@main/history.json" > /dev/null || true

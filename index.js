@@ -2,6 +2,7 @@
 // يشتغل عبر GitHub Actions كل ~15 دقيقة (أو محلياً للاختبار)
 const admin = require('firebase-admin');
 const fs = require('fs');
+const { updateHistory } = require('./history');
 
 // رقم أحدث إصدار منشور من التطبيق (build number) — يُستخدم لتنبيه "يوجد تحديث"
 // عند إطلاق نسخة جديدة: ارفع هذا الرقم ليطابق build الجديد
@@ -215,6 +216,8 @@ async function main() {
     };
     fs.writeFileSync('prices.json', JSON.stringify(cdn));
     console.log('OK wrote prices.json (CDN)');
+    // 📈 تاريخ الأسعار للرسم البياني (إضافة فقط — يسجّل الأسعار اللي انجلبت فوق بدون ما يغيّرها)
+    try { updateHistory(cdn); } catch (e) { console.warn('history err', e.message); }
   } catch (e) { console.warn('cdn write err', e.message); }
 
   await handleNotifications(oldData, data);
