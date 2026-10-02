@@ -1,0 +1,38 @@
+name: Build macro analysis
+
+# تشغيل يدوي: يبني macro.json فوراً (للتجربة أو للتحديث القسري). التحديث العادي يصير تلقائياً ويه حلقة الأسعار
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: macro-build
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build macro.json
+        run: node macro.js
+      - name: Show summary
+        run: |
+          node -e "const m=require('./macro.json'); for (const e of m.events) console.log(e.date, e.time, e.type, e.status, '|', e.headline, '|', e.reaction ? JSON.stringify(e.reaction) : ''); console.log('news', Object.fromEntries(Object.entries(m.news).map(([k,v])=>[k,v.length]))); console.log('forecasts', JSON.stringify(m.forecasts));"
+      - name: Commit macro.json
+        run: |
+          git config user.name "price-bot"
+          git config user.email "price-bot@users.noreply.github.com"
+          git add macro.json
+          git commit -m "macro analysis [skip ci]" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin main && git push origin main && break
+            sleep 10
+          done
+          curl -s --max-time 20 "https://purge.jsdelivr.net/gh/noviqcapital-lgtm/iraq-price-server@main/macro.json" > /dev/null || true

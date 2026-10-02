@@ -218,6 +218,11 @@ async function main() {
     console.log('OK wrote prices.json (CDN)');
     // 📈 تاريخ الأسعار للرسم البياني (إضافة فقط — يسجّل الأسعار اللي انجلبت فوق بدون ما يغيّرها)
     try { updateHistory(cdn); } catch (e) { console.warn('history err', e.message); }
+    // 📊 تحليل الأخبار الاقتصادية العالمية (كل 6 ساعات أو بعد صدور خبر) — حد زمني حتى ما يأخر الأسعار
+    try {
+      const { updateMacro } = require('./macro'); // تحميل داخل الحماية: أي خطأ بالتحليل ما يوقف الأسعار
+      await Promise.race([updateMacro(), new Promise((_, rej) => setTimeout(() => rej(new Error('macro timeout')), 90000))]);
+    } catch (e) { console.warn('macro err', e.message); }
   } catch (e) { console.warn('cdn write err', e.message); }
 
   await handleNotifications(oldData, data);
