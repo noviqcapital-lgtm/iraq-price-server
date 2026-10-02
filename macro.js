@@ -85,7 +85,7 @@ async function fetchBls() {
   const y = new Date().getUTCFullYear();
   const txt = await getText('https://api.bls.gov/publicAPI/v1/timeseries/data/', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ seriesid: ids, startyear: String(y - 2), endyear: String(y) }),
+    body: JSON.stringify({ seriesid: ids, startyear: String(Math.min(2025, y - 2)), endyear: String(y) }), // من 2025 حتى تبقى أخبار 2026 محسوبة بالسنين الجاية
   });
   const j = JSON.parse(txt);
   if (j.status !== 'REQUEST_SUCCEEDED') throw new Error('BLS ' + j.status + ' ' + JSON.stringify(j.message));
@@ -120,7 +120,7 @@ async function fetchRateChanges() {
   const txt = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
   const out = [];
   const y = new Date().getUTCFullYear();
-  for (const yr of [y, y - 1]) {
+  for (let yr = y; yr >= 2025; yr--) { // من 2025 حتى نعرف مستوى الفائدة قبل أول اجتماع بـ2026
     const i = txt.indexOf(`${yr} Date Increase Decrease Level (%)`);
     if (i < 0) continue;
     const seg = txt.slice(i, txt.indexOf('Back to year navigation', i));
@@ -299,12 +299,13 @@ async function updateMacro(force = false) {
 
   const [bls, fomcDates, rates, fcNew, dxy, spx, ...news] = await Promise.allSettled([
     fetchBls(), fetchFomcDates(), fetchRateChanges(), fetchForecasts(),
-    fetchYahoo('DX-Y.NYB', `${year - 1}-12-01`), fetchYahoo('^GSPC', `${year - 1}-12-01`),
+    fetchYahoo('DX-Y.NYB', '2025-12-01'), fetchYahoo('^GSPC', '2025-12-01'),
     fetchNews('الفيدرالي الأمريكي الفائدة'), fetchNews('التضخم الأمريكي أسعار المستهلك'),
     fetchNews('الوظائف الأمريكية البطالة'), fetchNews('أسعار المنتجين الأمريكية'),
   ]).then((r) => r.map((x, i) => { if (x.status === 'rejected') console.warn('macro source', i, x.reason && x.reason.message); return x.status === 'fulfilled' ? x.value : null; }));
   if (!bls) { console.warn('macro: BLS failed, keep old file'); return false; }
-  if (fomcDates) fomc = fomcDates;
+  // مواعيد 2026 الثابتة + مواعيد السنة الحالية من موقع الفيدرالي (بدون تكرار)
+  if (fomcDates) fomc = [...new Set([...FOMC_FALLBACK, ...fomcDates])].sort();
 
   const forecasts = { ...((old && old.forecasts) || {}), ...(fcNew || {}) };
   const fc = (k) => (forecasts[k] != null ? forecasts[k] : null);
@@ -317,7 +318,8 @@ async function updateMacro(force = false) {
   for (const date of fomc) all.push({ type: 'fomc', ref: null, date });
   all.sort((a, b) => (a.date < b.date ? -1 : 1));
   const now = Date.now();
-  const events = all.filter((e) => e.date.startsWith(String(year)) || e.date >= `${year}-01-01`).map((e) => {
+  // كل السنوات الموجودة بالجدول (2026، وبعدين 2027...) حتى ما تختفي أخبار السنة السابقة — التطبيق يفلتر حسب السنة
+  const events = all.filter((e) => e.date >= '2026-01-01').map((e) => {
     const at = releaseAt(e.type, e.date);
     const next = all.find((x) => x.type === e.type && x.date > e.date);
     const base = {
