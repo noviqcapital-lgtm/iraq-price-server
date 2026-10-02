@@ -6,7 +6,7 @@ const { updateHistory } = require('./history');
 
 // رقم أحدث إصدار منشور من التطبيق (build number) — يُستخدم لتنبيه "يوجد تحديث"
 // عند إطلاق نسخة جديدة: ارفع هذا الرقم ليطابق build الجديد
-const LATEST_BUILD = 7;
+const LATEST_BUILD = 10;
 
 // مفتاح الخدمة: محلياً من الملف، وعلى GitHub من متغيّر البيئة FIREBASE_KEY
 const serviceAccount = process.env.FIREBASE_KEY
