@@ -223,6 +223,11 @@ async function main() {
       const { updateMacro } = require('./macro'); // تحميل داخل الحماية: أي خطأ بالتحليل ما يوقف الأسعار
       await Promise.race([updateMacro(), new Promise((_, rej) => setTimeout(() => rej(new Error('macro timeout')), 90000))]);
     } catch (e) { console.warn('macro err', e.message); }
+    // 🔔 تنبيه المدير إذا سعر الدولار وكف بالمصدر (قراءة فقط — ما يغيّر الأسعار)
+    try {
+      const { checkDollarStale } = require('./alert');
+      await Promise.race([checkDollarStale(db, cdn), new Promise((_, rej) => setTimeout(() => rej(new Error('alert timeout')), 60000))]);
+    } catch (e) { console.warn('alert err', e.message); }
   } catch (e) { console.warn('cdn write err', e.message); }
 
   await handleNotifications(oldData, data);
