@@ -7,7 +7,7 @@ const CHANNEL = 'Kukh_alomlat';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
 const STALE_MIN = 180;          // 3 ساعات بدون منشور سعر = متوقف
 const REPEAT_MS = 3 * 3600000;  // تكرار التنبيه كل 3 ساعات
-const HOURS_FROM = 10, HOURS_TO = 20; // وقت الدوام بتوقيت بغداد (ما ينبّه بالليل)
+const HOURS_FROM = 10, HOURS_TO = 22; // وقت الدوام بتوقيت بغداد (ما ينبّه بالليل)
 
 // وقت آخر منشور بالقناة بيه سعر بيع (نفس نمط قراءة السيرفر)
 async function lastPricePostTime() {
@@ -51,7 +51,7 @@ async function checkDollarStale(db, cdn) {
 
   // أول مرة: رسالة تأكيد إن التنبيهات وصلت لتلفونك
   if (!st.welcomed) {
-    await ntfy(topic, 'تنبيهات سعر الدولار مفعّلة ✅', 'راح يوصلك تنبيه هنا إذا القناة ما نشرت سعر الدولار أكثر من 3 ساعات (من 10 الصبح لـ 8 المسا).', 3, ['white_check_mark']);
+    await ntfy(topic, 'تنبيهات سعر الدولار مفعّلة ✅', 'راح يوصلك تنبيه هنا إذا القناة ما نشرت سعر الدولار أكثر من 3 ساعات (من 10 الصبح لـ 10 بالليل).', 3, ['white_check_mark']);
     await ref.set({ welcomed: true }, { merge: true });
   }
 
